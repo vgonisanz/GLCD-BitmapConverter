@@ -1,6 +1,6 @@
 from PIL import Image
 import argparse
-
+import os
 
 def load_image(filename, target_width, target_height):
     """
@@ -54,12 +54,18 @@ def get_average_pixel_intensity(width, height, pixel_data, invert):
     return avg_intensity
 
 
-def output_image_c_array(width, height, pixel_data, crossover, invert):
+def output_image_c_array(width, height, pixel_data, crossover, output, invert):
     """
     Outputs the data in a C bitmap array format.
     """
 
-    print '{'
+    base = os.path.basename(output)
+    output_file = open(output, "w")
+
+    line = 'const uint8_t ' + os.path.splitext(base)[0] + '[] U8G_PROGMEM = {' + '\n'
+    output_file.write(line)
+    line = hex(width/8) + ', ' + hex(height) + ', ' + '// row_bytes = WIDTH/8, HEIGHT' + '\n'
+    output_file.write(line)
 
     for y_idx in range(0, height):
         next_line = ''
@@ -73,9 +79,12 @@ def output_image_c_array(width, height, pixel_data, crossover, invert):
             if get_pixel_intensity(pixel_data[x_idx, y_idx], invert) > crossover:
                 next_value += 2 ** (7 - (x_idx % 8))
 
-        print next_line
+        line = next_line + '\n'
+        output_file.write(line)
 
-    print '};'
+    line = '};'
+    output_file.write(line)
+    output_file.close()
 
 
 def convert(params):
@@ -88,7 +97,7 @@ def convert(params):
         crossover_intensity = get_average_pixel_intensity(width, height, image_data, params.invert)
     else:
         crossover_intensity = params.threshold
-    output_image_c_array(width, height, image_data, crossover_intensity, params.invert)
+    output_image_c_array(width, height, image_data, crossover_intensity, params.output, params.invert)
 
 
 def run():
@@ -123,7 +132,12 @@ def run():
     parser.add_argument(
             '-f', '--image',
             type=str,
-            help='Image file to convert')
+            help='Image input file to convert')
+
+    parser.add_argument(
+            '-o', '--output',
+            type=str,
+            help='Image output file name')
 
     params = parser.parse_args()
     convert(params)
